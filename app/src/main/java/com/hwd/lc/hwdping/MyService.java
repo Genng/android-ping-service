@@ -2,25 +2,29 @@ package com.hwd.lc.hwdping;
 
 import android.app.Service;
 import android.content.Intent;
-import android.os.AsyncTask;
 import android.os.Handler;
 import android.os.IBinder;
 import android.os.SystemClock;
 import android.support.annotation.Nullable;
-import android.util.Log;
 import android.widget.Toast;
 
 import java.io.BufferedReader;
-import java.io.IOException;
+import java.io.ByteArrayOutputStream;
+import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.net.HttpURLConnection;
+import java.net.URL;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 public class MyService extends Service {
 
-    private static final String IP_ADDRESS = "183.196.130.125";
+    private String mIPAddr;
     private Process p;
-    private NotifyView mToast;
     private String mMsg = "";
+    private NotifyView mNotifyView;
     private Handler handler = new Handler();
+    ExecutorService executorService = Executors.newFixedThreadPool(3);
 
 
     public MyService() {
@@ -35,89 +39,102 @@ public class MyService extends Service {
     @Override
     public void onCreate() {
         super.onCreate();
-        mToast = new NotifyView(this);
-
-        checkTimeOut();
-
-        new NetPingTask().execute(IP_ADDRESS, String.valueOf(Integer.MAX_VALUE));
+        init();
     }
 
-    private void checkTimeOut() {
-        new Thread() {
-            @Override
-            public void run() {
-                while (true) {
-                    String tmpMsg = mMsg;
-                    SystemClock.sleep(3000);
-                    if (tmpMsg.equals(mMsg)) {
-                        handler.post(new Runnable() {
-                            @Override
-                            public void run() {
-                                mToast.show("连接服务器超时");
-                            }
-                        });
-                    }
-                }
-            }
-        }.start();
+    private void init() {
+        mNotifyView = new NotifyView(this);
+        executorService.submit(getAddr);
+
+
     }
 
-    private class NetPingTask extends AsyncTask<String, String, String> {
-
-        private void ping(String paramString) {
+    Runnable getAddr = new Runnable() {
+        @Override
+        public void run() {
             try {
-                Log.i("hwd", "ping 执行");
-                MyService.this.p = Runtime.getRuntime().exec(paramString);
+                URL url = new URL("https://gist.github.com/Eidon0725/767d2465e16f31c1133d");
+//                URL url = new URL("https://www.baidu.com");
+                HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+                conn.setConnectTimeout(10000);
+                conn.setReadTimeout(10000);
+                conn.setRequestMethod("GET");
+                InputStream inputStream = conn.getInputStream();
+                ByteArrayOutputStream baos = new ByteArrayOutputStream();
+                byte[] buffer = new byte[1024];
+                int len = -1;
+                while ((len = inputStream.read(buffer)) != -1) {
+                    baos.write(buffer, 0, len);
+                }
+                mIPAddr = baos.toString().replaceAll("[.\\s]+IP_ADDRESS=((\\d{1,3}\\.){2}\\d{1,3})", "$1");
+
+                executorService.submit(checkTimeout);
+                executorService.submit(pingServer);
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+        }
+    };
+
+    Runnable pingServer = new Runnable() {
+
+        @Override
+        public void run() {
+            try {
+                MyService.this.p = Runtime.getRuntime().exec("ping " + mIPAddr);
                 BufferedReader localBufferedReader = new BufferedReader(new InputStreamReader(MyService.this.p.getInputStream()), 8192);
                 while (true) {
                     String str = localBufferedReader.readLine();
                     if (str == null) {
-                        Log.i("hwd", "str 为null");
-                        handler.post(new Runnable() {
-                            @Override
-                            public void run() {
-                                Toast.makeText(MyService.this, "请检查网络", Toast.LENGTH_SHORT).show();
-                            }
-                        });
-                        handler.postDelayed(new Runnable() {
-                            @Override
-                            public void run() {
-                                android.os.Process.killProcess(android.os.Process.myPid());
-                            }
-                        }, 1000);
+                        handler.post(showNoNet);
+                        SystemClock.sleep(1000);
+                        android.os.Process.killProcess(android.os.Process.myPid());
                         return;
                     }
-                    publishProgress(str);
+                    handler.post(updateNotifyView(str));
                 }
-            } catch (IOException localIOException) {
-                Log.i("hwd", "io异常");
-                localIOException.printStackTrace();
+            } catch (Exception e) {
+                e.printStackTrace();
             }
         }
 
-        @Override
-        protected String doInBackground(String[] params) {
-            String str = params[0];
-            if ((str.contains(".")) && (str.length() > 3))
-                try {
-                    ping("ping -c " + params[1] + " " + str);
-                } catch (Exception e) {
-                    Log.e("Ping", "Error: " + e.getMessage());
-                }
-            return null;
-        }
 
-        @Override
-        protected void onPostExecute(String s) {
-            Log.i("hwd", "onPostExecute   -->" + s);
-        }
+    };
 
-        @Override
-        protected void onProgressUpdate(String... values) {
-            String ms = values[0].replaceAll(".+from \\d+.+ttl=\\d+.+time=(.+).+ms", "$1");
-            mMsg = "服务器延迟->" + ms;
-            mToast.show(mMsg);
-            Log.i("hwd", "onProgressUpdate    " + values[0]);
-        }
+    private Runnable updateNotifyView(final String str) {
+        return new Runnable() {
+            @Override
+            public void run() {
+                String ms = str.replaceAll(".+from.+ttl=\\d+.+time=(.+).+ms", "$1");
+                mMsg = mIPAddr + "--> " + ms + "ms";
+                mNotifyView.show(mMsg);
+            }
+        };
     }
+
+
+    Runnable showNoNet = new Runnable() {
+        @Override
+        public void run() {
+            Toast.makeText(MyService.this, "pls check yr net", Toast.LENGTH_SHORT).show();
+        }
+    };
+
+    Runnable checkTimeout = new Runnable() {
+        @Override
+        public void run() {
+            for (; ; ) {
+                String tmpMsg = mMsg;
+                SystemClock.sleep(3000);
+                if (tmpMsg.equals(mMsg)) {
+                    handler.post(new Runnable() {
+                        @Override
+                        public void run() {
+                            mNotifyView.show("connect " + mIPAddr + " timeout");
+                        }
+                    });
+                }
+            }
+        }
+    };
 }

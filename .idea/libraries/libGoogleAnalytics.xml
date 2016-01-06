@@ -1,7 +1,7 @@
 <component name="libraryTable">
   <library name="libGoogleAnalytics">
     <CLASSES>
-      <root url="jar://$PROJECT_DIR$/libs/libGoogleAnalytics.jar!/" />
+      <root url="jar://$PROJECT_DIR$/../HwdPing/libs/libGoogleAnalytics.jar!/" />
     </CLASSES>
     <JAVADOC />
     <SOURCES />

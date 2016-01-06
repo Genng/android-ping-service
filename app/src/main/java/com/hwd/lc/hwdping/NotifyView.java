@@ -16,7 +16,7 @@ import android.widget.TextView;
 public class NotifyView {
     private TextView mTv;
 
-    NotifyView(Context context) {
+    public NotifyView(Context context) {
         WindowManager mWm = (WindowManager) context.getSystemService(Context.WINDOW_SERVICE);
         WindowManager.LayoutParams mParams = new WindowManager.LayoutParams();
         mParams.height = WindowManager.LayoutParams.WRAP_CONTENT;
