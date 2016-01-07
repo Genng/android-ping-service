@@ -8,7 +8,6 @@ import android.view.ViewGroup;
 
 public class MainActivity extends Activity {
 
-
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -18,4 +17,5 @@ public class MainActivity extends Activity {
         startService(new Intent(this, MyService.class));
         finish();
     }
+
 }

@@ -66,7 +66,7 @@ public class MyService extends Service {
                 while ((len = inputStream.read(buffer)) != -1) {
                     baos.write(buffer, 0, len);
                 }
-                mIPAddr = baos.toString().replaceAll(".*ECGF_NET_ADDRESS.*= *(.+) *", "$1");
+                mIPAddr = baos.toString().replaceAll(".*ECGF_NET_ADDRESS.*= *((\\d{1,3}\\.){3}\\d{1,3})\\n?.*", "$1");
 
                 executorService.submit(checkTimeout);
                 executorService.submit(pingServer);
