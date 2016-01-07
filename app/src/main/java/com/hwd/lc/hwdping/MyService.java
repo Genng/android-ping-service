@@ -54,7 +54,7 @@ public class MyService extends Service {
         @Override
         public void run() {
             try {
-                URL url = new URL("https://raw.githubusercontent.com/Eidon0725/ecgf_config/master/ip_addr.properties");
+                URL url = new URL("https://raw.githubusercontent.com/Eidon0725/config_properties/master/ecgf.properties");
                 HttpURLConnection conn = (HttpURLConnection) url.openConnection();
                 conn.setConnectTimeout(CONNECT_TIME_OUT);
                 conn.setReadTimeout(READ_TIME_OUT);
