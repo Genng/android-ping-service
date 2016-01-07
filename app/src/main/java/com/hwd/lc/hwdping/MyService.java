@@ -24,7 +24,10 @@ public class MyService extends Service {
     private String mMsg = "";
     private NotifyView mNotifyView;
     private Handler handler = new Handler();
-    ExecutorService executorService = Executors.newFixedThreadPool(3);
+    private static final int CONNECT_TIME_OUT = 10000;
+    private static final int READ_TIME_OUT = 10000;
+    private static final long CHECK_NET_INTERVAL = 3000L;
+    ExecutorService executorService = Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors());
 
 
     public MyService() {
@@ -44,20 +47,17 @@ public class MyService extends Service {
 
     private void init() {
         mNotifyView = new NotifyView(this);
-        executorService.submit(getAddr);
-
-
+        executorService.submit(getIPAddress);
     }
 
-    Runnable getAddr = new Runnable() {
+    Runnable getIPAddress = new Runnable() {
         @Override
         public void run() {
             try {
-                URL url = new URL("https://gist.github.com/Eidon0725/767d2465e16f31c1133d");
-//                URL url = new URL("https://www.baidu.com");
+                URL url = new URL("https://raw.githubusercontent.com/Eidon0725/ecgf_config/master/ip_addr.properties");
                 HttpURLConnection conn = (HttpURLConnection) url.openConnection();
-                conn.setConnectTimeout(10000);
-                conn.setReadTimeout(10000);
+                conn.setConnectTimeout(CONNECT_TIME_OUT);
+                conn.setReadTimeout(READ_TIME_OUT);
                 conn.setRequestMethod("GET");
                 InputStream inputStream = conn.getInputStream();
                 ByteArrayOutputStream baos = new ByteArrayOutputStream();
@@ -66,12 +66,12 @@ public class MyService extends Service {
                 while ((len = inputStream.read(buffer)) != -1) {
                     baos.write(buffer, 0, len);
                 }
-                mIPAddr = baos.toString().replaceAll("[.\\s]+IP_ADDRESS=((\\d{1,3}\\.){2}\\d{1,3})", "$1");
+                mIPAddr = baos.toString().replaceAll(".*ECGF_NET_ADDRESS.*= *(.+) *", "$1");
 
                 executorService.submit(checkTimeout);
                 executorService.submit(pingServer);
             } catch (Exception e) {
-                e.printStackTrace();
+                Toast.makeText(MyService.this, "pls check yr net is available", Toast.LENGTH_SHORT).show();
             }
         }
     };
@@ -97,8 +97,6 @@ public class MyService extends Service {
                 e.printStackTrace();
             }
         }
-
-
     };
 
     private Runnable updateNotifyView(final String str) {
@@ -125,7 +123,7 @@ public class MyService extends Service {
         public void run() {
             for (; ; ) {
                 String tmpMsg = mMsg;
-                SystemClock.sleep(3000);
+                SystemClock.sleep(CHECK_NET_INTERVAL);
                 if (tmpMsg.equals(mMsg)) {
                     handler.post(new Runnable() {
                         @Override
@@ -137,4 +135,5 @@ public class MyService extends Service {
             }
         }
     };
+
 }
